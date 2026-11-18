@@ -62,7 +62,8 @@ def load_engine():
     stopword = StopWordRemoverFactory().create_stop_word_remover()
 
     text_columns = ["Nama Wisata", "Kategori", "Deskripsi", "Tipe", "Aktivitas", "Lokasi"]
-    df["teks_gabungan"] = df[text_columns].astype(str).agg(" ".join, axis=1)
+    # str() per sel: sel kosong jadi "nan" (sama dengan notebook, aman di pandas 2 maupun 3)
+    df["teks_gabungan"] = df[text_columns].apply(lambda c: c.map(str)).agg(" ".join, axis=1)
 
     def preprocess_leksikal(text):
         text = text.lower()
@@ -89,7 +90,7 @@ def load_engine():
 
     final_vectors_hybrid = np.hstack((ALPHA * tfidf_vectors, BETA * sbert_vectors_norm))
 
-    nama_bersih = df["Nama Wisata"].astype(str).apply(lambda x: x.split(",")[0].strip())
+    nama_bersih = df["Nama Wisata"].map(str).apply(lambda x: x.split(",")[0].strip())
 
     return dict(df=df, stemmer=stemmer, stopword=stopword, tfidf=tfidf,
                 sbert_model=sbert_model, hybrid=final_vectors_hybrid,
