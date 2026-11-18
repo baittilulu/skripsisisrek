@@ -4,6 +4,7 @@ Logika pra-pemrosesan, TF-IDF, SBERT, dan hybrid weighted concatenation
 disalin dari notebook penelitian tanpa perubahan perhitungan.
 """
 import base64
+import csv
 import html
 import io
 import re
@@ -42,6 +43,33 @@ POPULAR = [
 
 st.set_page_config(page_title="WisataBajo", page_icon="🗺️", layout="wide",
                    initial_sidebar_state="collapsed")
+
+
+def build_info(df):
+    """Data TAMPILAN (bukan untuk perhitungan).
+    Kalau tiap baris CSV terbungkus jadi satu sel di kolom 'Nama Wisata'
+    (kolom lain kosong), uraikan ulang sebagai baris CSV biasa."""
+    cols = ["Nama Wisata", "Kategori", "Deskripsi", "Tipe", "Aktivitas", "Lokasi"]
+    rows = []
+    for _, r in df.iterrows():
+        vals = [r[c] for c in cols]
+        others_empty = all(pd.isna(v) or str(v).strip() == "" for v in vals[1:])
+        first = str(vals[0])
+        if others_empty and "," in first:
+            try:
+                parts = next(csv.reader([first]))
+            except Exception:
+                parts = first.split(",")
+            parts = [p.strip() for p in parts]
+            if len(parts) > 6:                       # deskripsi/lokasi yang berkoma
+                parts = parts[:5] + [", ".join(parts[5:])]
+            parts += [""] * (6 - len(parts))
+            vals = parts[:6]
+        rec = dict(zip(cols, vals))
+        if "Gambar" in df.columns:
+            rec["Gambar"] = r["Gambar"]
+        rows.append(rec)
+    return pd.DataFrame(rows)
 
 
 # ----------------------------------------------------------------------
@@ -92,7 +120,7 @@ def load_engine():
 
     nama_bersih = df["Nama Wisata"].map(str).apply(lambda x: x.split(",")[0].strip())
 
-    return dict(df=df, stemmer=stemmer, stopword=stopword, tfidf=tfidf,
+    return dict(df=df, info=build_info(df), stemmer=stemmer, stopword=stopword, tfidf=tfidf,
                 sbert_model=sbert_model, hybrid=final_vectors_hybrid,
                 nama=nama_bersih, preprocess_semantik=preprocess_semantik)
 
@@ -363,7 +391,7 @@ def page_results(query):
     cards = []
     for _, r in res.iterrows():
         i = int(r["idx"])
-        row = E["df"].iloc[i]
+        row = E["info"].iloc[i]
         nama = E["nama"].iloc[i]
         uri = find_image(row, nama, 700)
         pic = (f'<img class="pic" src="{uri}" alt="{esc(nama)}">' if uri
@@ -383,9 +411,9 @@ def page_results(query):
 def page_detail(idx, query):
     st.markdown(DETAIL_CSS, unsafe_allow_html=True)
     E = load_engine()
-    if idx < 0 or idx >= len(E["df"]):
+    if idx < 0 or idx >= len(E["info"]):
         go()
-    row = E["df"].iloc[idx]
+    row = E["info"].iloc[idx]
     nama = E["nama"].iloc[idx]
     uri = find_image(row, nama, 1100)
     pic = (f'<div class="dimg" style="background-image:url({uri})"></div>' if uri
@@ -431,7 +459,7 @@ try:
         st.subheader("Diagnosis dataset")
         st.write("Kolom:", list(_E["df"].columns))
         st.write("Jumlah baris:", len(_E["df"]))
-        st.dataframe(_E["df"].iloc[:5, :6], use_container_width=True)
+        st.dataframe(_E["info"].iloc[:5, :6], use_container_width=True)
         st.stop()
     if page == "results" and query.strip():
         page_results(query.strip())
