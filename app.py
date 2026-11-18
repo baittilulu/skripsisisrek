@@ -40,7 +40,7 @@ POPULAR = [
     ("Budaya", "fa-landmark"),
 ]
 
-st.set_page_config(page_title="WisataBajo", page_icon="🗺️", layout="centered",
+st.set_page_config(page_title="WisataBajo", page_icon="🗺️", layout="wide",
                    initial_sidebar_state="collapsed")
 
 
@@ -188,7 +188,10 @@ html, body, [class*="css"], .stApp { font-family: 'Segoe UI', Tahoma, Geneva, Ve
 #MainMenu, header[data-testid="stHeader"], footer, [data-testid="stToolbar"],
 [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-a { text-decoration: none; }
+.stMarkdown a, .stMarkdown a:hover { text-decoration: none !important; }
+[data-testid="stHeaderActionElements"] { display:none !important; }
+.stMarkdown table, .stMarkdown td, .stMarkdown tr, .stMarkdown th { border:none; }
+.block-container { margin-left:auto; margin-right:auto; }
 @media print {
   .st-key-btn_other, .st-key-btn_print, iframe { display: none !important; }
 }
@@ -270,9 +273,9 @@ DETAIL_CSS = """
 .badge i { margin-right:.3rem; }
 .btn-home { background:#fff; color:#2c3e50 !important; border-radius:8px; padding:.45rem .9rem; font-size:.85rem; font-weight:600; }
 .btn-home i { margin-right:.35rem; }
-.dgrid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; padding:1.5rem 2rem 1rem; align-items:start; }
+.dgrid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; padding:1.5rem 2rem 1rem; align-items:stretch; }
 @media (max-width:760px){ .dgrid { grid-template-columns:1fr; padding:1rem; } }
-.dimg { width:100%; border-radius:14px; display:block; object-fit:cover; min-height:300px; max-height:420px; box-shadow:0 4px 18px rgba(0,0,0,.12); }
+.dimg { width:100%; height:100%; min-height:420px; border-radius:14px; background-size:cover; background-position:center; box-shadow:0 4px 18px rgba(0,0,0,.12); }
 .dph { width:100%; height:330px; border-radius:14px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:3rem; background:linear-gradient(135deg,#a8c0d8,#6d8fb0); }
 .right { display:flex; flex-direction:column; gap:1.1rem; }
 .dcard { background:#fff; border-radius:14px; padding:1.2rem 1.4rem; box-shadow:0 4px 18px rgba(0,0,0,.08); }
@@ -280,12 +283,14 @@ DETAIL_CSS = """
 .dcard h2 i { color:#667eea; margin-right:.5rem; }
 .dcard p { margin:0; color:#444; font-size:.9rem; line-height:1.55; }
 .dcard table { width:100%; border-collapse:collapse; font-size:.88rem; }
-.dcard td { padding:.55rem .2rem; border-bottom:1px solid #eef0f3; color:#444; }
+.stMarkdown .dcard table { border:none !important; }
+.stMarkdown .dcard td { padding:.55rem .2rem; border:none !important; border-bottom:1px solid #eef0f3 !important; color:#444; background:transparent; }
 .dcard td:first-child { font-weight:700; color:#2c3e50; width:35%; }
-.dcard tr:last-child td { border-bottom:none; }
+.stMarkdown .dcard tr:last-child td { border-bottom:none !important; }
 .chip { display:inline-block; background:#e9eef0; color:#444; border-radius:999px; padding:.3rem .8rem; font-size:.8rem; margin:0 .4rem .4rem 0; }
 .chip i { color:#27ae60; margin-right:.3rem; font-size:.7rem; }
-.st-key-btn_other button, .st-key-btn_print button { border:none; border-radius:8px; color:#fff; font-weight:600; padding:.55rem 1rem; width:100%; }
+.st-key-btnrow { margin-top:.5rem; gap:1rem; }
+.st-key-btn_other button, .st-key-btn_print button { border:none; border-radius:8px; color:#fff; font-weight:600; padding:.55rem 1.2rem; }
 .st-key-btn_other button { background:#1d8cf8; }
 .st-key-btn_print button { background:#1e9e5a; }
 .st-key-btn_other button:hover, .st-key-btn_print button:hover { filter:brightness(1.08); color:#fff; }
@@ -383,7 +388,7 @@ def page_detail(idx, query):
     row = E["df"].iloc[idx]
     nama = E["nama"].iloc[idx]
     uri = find_image(row, nama, 1100)
-    pic = (f'<img class="dimg" src="{uri}" alt="{esc(nama)}">' if uri
+    pic = (f'<div class="dimg" style="background-image:url({uri})"></div>' if uri
            else '<div class="dph"><i class="fa-regular fa-image"></i></div>')
 
     chips = "".join(f'<span class="chip"><i class="fa-solid fa-check"></i>{esc(a)}</span>'
@@ -403,13 +408,13 @@ def page_detail(idx, query):
         f'<div class="dcard"><h2><i class="fa-solid fa-person-running"></i>Aktivitas</h2>{chips}</div>'
         f'</div></div>', unsafe_allow_html=True)
 
-    _, c1, c2, _ = st.columns([2.6, 2.4, 1.3, 2.6])
-    with c1:
-        if st.button("Cari Destinasi Lain", key="btn_other"):
-            go()
-    with c2:
-        if st.button("Cetak", key="btn_print"):
-            components.html("<script>window.parent.print();</script>", height=0)
+    with st.container(horizontal=True, horizontal_alignment="center", key="btnrow"):
+        other = st.button("Cari Destinasi Lain", key="btn_other")
+        cetak = st.button("Cetak", key="btn_print")
+    if other:
+        go()
+    if cetak:
+        components.html("<script>window.parent.print();</script>", height=0)
 
 
 # ----------------------------------------------------------------------
@@ -421,6 +426,13 @@ page = qp.get("page", "home")
 query = qp.get("q", "")
 
 try:
+    if qp.get("debug"):
+        _E = load_engine()
+        st.subheader("Diagnosis dataset")
+        st.write("Kolom:", list(_E["df"].columns))
+        st.write("Jumlah baris:", len(_E["df"]))
+        st.dataframe(_E["df"].iloc[:5, :6], use_container_width=True)
+        st.stop()
     if page == "results" and query.strip():
         page_results(query.strip())
     elif page == "detail" and str(qp.get("id", "")).isdigit():
